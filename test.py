@@ -6,35 +6,34 @@ import tensorflow.keras as keras
 import io
 from pydub import AudioSegment
 import tensorflow_addons as tfa
+import tensorflow as tf
+from tensorflow_addons.losses import SigmoidFocalCrossEntropy
+from model import focal_loss_custom
+from generate_spec import generate_mel_spectrogram
 
 # Wczytaj model
-model = keras.models.load_model("models/piano_note_model_commercial_v0.6.keras")
+model = keras.models.load_model(
+    "models/piano_note_model_2048_v0.5.keras",
+    custom_objects={'custom_loss': focal_loss_custom}
+)
 
 # Parametry
 sr = 44100
-segment_duration = 0.054  # 50 ms
+segment_duration = 0.05  # 50 ms
 samples_per_segment = int(sr * segment_duration)
 
 # Funkcja do generowania spektrogramu z numpy array
-def generate_mel_spectrogram(y, sr=sr, n_mels=128, hop_length=128):
-    y = y.astype(np.float32) / 32768.0
-    n_fft = 1024
-    mel_spec = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=n_mels, hop_length=hop_length, 
-                                              n_fft=n_fft)
-    
-    mel_spec_db = librosa.power_to_db(mel_spec, ref=np.max)
-    
-    
-    return mel_spec_db
 
 # Główna pętla nasłuchująca
 print("Nasłuchiwanie... Naciśnij Ctrl+C, aby przerwać.")
+
+
 try:
     while True:
         audio = sd.rec(samples_per_segment, samplerate=sr, channels=1, dtype='int16')
         sd.wait()
 
-        y = audio.astype(np.float32).flatten()
+        y = audio.astype(np.float32).flatten() / 32768.0
 
         # Generowanie spektrogramu
         spec = generate_mel_spectrogram(y, sr=sr)
@@ -45,18 +44,19 @@ try:
         spec = np.expand_dims(spec, axis=0)   # Batch
 
         prediction = model.predict(spec, verbose=0)[0]
-        if prediction.max() > 0.1:
-            threshold = prediction.max() * 0.7
+        if prediction.max() > 0.2:
+            threshold = prediction.max() * 0.4
         else:
             threshold = 100
 
+        expected = []
         pressed_keys = []
         for i, val in enumerate(prediction):
             if val > threshold:
                 pressed_keys.append((i, val))
 
 
-        print(f"Nuty: {pressed_keys}",)
+        print(f"Nuty: {pressed_keys}", )
 
         # Czekaj tylko tyle, ile potrzeba (np. około 50 ms)
         time.sleep(0.01)

@@ -5,7 +5,7 @@ import os
 import pandas as pd
 import tensorflow_addons as tfa
 
-model = keras.models.load_model("models/piano_note_model_commercial_v0.5.keras")
+model = keras.models.load_model("models/piano_note_model_commercial_v0.6.keras")
 
 # X_test = np.load("tmp/X_test.npy", mmap_mode='r')
 # y_test = np.load("tmp/y_test.npy", mmap_mode='r')
@@ -21,7 +21,7 @@ model = keras.models.load_model("models/piano_note_model_commercial_v0.5.keras")
 test_files = []
 real_vectors = []
 
-test_files = ["mel_spec_15.npy", "mel_spec_10.npy","mel_spec_5.npy","mel_spec_2.npy",]
+test_files = ["mel_spec_15.npy", "mel_spec_10.npy","mel_spec_5.npy","mel_spec_2.npy", "mel_spec_1.npy", "mel_spec_0.npy", "mel_spec_3.npy", "mel_spec_4.npy", "mel_spec_6.npy", "mel_spec_7.npy", "mel_spec_8.npy", "mel_spec_9.npy", "mel_spec_11.npy", "mel_spec_12.npy", "mel_spec_13.npy", "mel_spec_14.npy"]
 
 number_of_files = len(test_files)
 
@@ -30,16 +30,15 @@ vector = [1 if i in [39, 43, 46] else 0 for i in range(88)]
 print(vector)
 
 real_vectors = []
-real_vectors.append(vector)
-real_vectors.append(vector)
-real_vectors.append(vector)
-real_vectors.append(vector)
+for i in range(number_of_files):
+    real_vectors.append(vector)
+
 i=0
 
 added_lost_vector = []
 
 for file_name in test_files:
-    spec = np.load(os.path.join("spectrograms/test2_spec", file_name))
+    spec = np.load(os.path.join("spectrograms/test3_spec", file_name))
 
     spec_min = np.min(spec)
     spec_max = np.max(spec)
@@ -49,7 +48,7 @@ for file_name in test_files:
 
     prediction = model.predict(spec)
 
-    threshold = prediction[0].max() * 0.6
+    threshold = prediction[0].max() * 0.7
     print(threshold)
 
     a_l = [0,0]
@@ -60,7 +59,7 @@ for file_name in test_files:
         if (prediction[0][j] > threshold):
             predicted_indicies.append((j, prediction[0][j]))
     for j in predicted_indicies:
-        print(j[0], end=", ")
+        print(j, end=", ")
     print()
 
     real_indicies = []
