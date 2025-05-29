@@ -15,7 +15,12 @@
 /threshold_test.py
 /tmp
 .vscode/settings.json
+<<<<<<< HEAD
 /__pycache__
+=======
+__pycache__/generate_spec_new.cpython-39.pyc
+__pycache__/model.cpython-39.pyc
+>>>>>>> 43c1561b39ebbe465aa437b25629ecd0c0190dc9
 dane.svg
 dane.drawio
 model.drawio
