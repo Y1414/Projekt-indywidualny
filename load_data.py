@@ -4,45 +4,46 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 from sklearn.model_selection import train_test_split
 import os
+import gc
 
 print("Wczytywanie danych...")
 
 files_dirs = [
-    ("csv/american.csv", "spectrograms/american_spec"),
-    ("csv/american2.csv", "spectrograms/american2_spec"),
-    ("csv/black.csv", "spectrograms/black_spec"),
-    ("csv/butter.csv", "spectrograms/butter_spec"),
-    ("csv/cassete.csv", "spectrograms/cassete_spec"),
-    ("csv/crucial.csv", "spectrograms/crucial_spec"),
-    ("csv/crucial2.csv", "spectrograms/crucial2_spec"),
-    ("csv/desmond.csv", "spectrograms/desmond_spec"),
-    ("csv/DX.csv", "spectrograms/DX_spec"),
-    ("csv/flkeys.csv", "spectrograms/flkeys_spec"),
-    ("csv/german.csv", "spectrograms/german_spec"),
-    ("csv/japanese.csv", "spectrograms/japanese_spec"),
-    ("csv/montuno.csv", "spectrograms/montuno_spec"),
-    ("csv/neglected.csv", "spectrograms/neglected_spec"),
-    ("csv/neglected2.csv", "spectrograms/neglected2_spec"),
-    ("csv/notte.csv", "spectrograms/notte_spec"),
-    ("csv/one.csv", "spectrograms/one_spec"),
-    ("csv/ruffian.csv", "spectrograms/ruffian_spec"),
-    ("csv/ruffian2.csv", "spectrograms/ruffian2_spec"),
-    ("csv/savory.csv", "spectrograms/savory_spec"),
-    ("csv/school.csv", "spectrograms/school_spec"),
-    ("csv/strings.csv", "spectrograms/strings_spec"),
-    ("csv/TBE.csv", "spectrograms/TBE_spec"),
-    ("csv/tuck.csv", "spectrograms/tuck_spec"),
-    ("csv/wunder.csv", "spectrograms/wunder_spec"),
-    ("csv/savory2.csv", "spectrograms/savory2_spec"),
-    ("csv/1982.csv", "spectrograms/1982_spec"),
-    ("csv/german2.csv", "spectrograms/german2_spec"),
-    ("csv/noir.csv", "spectrograms/noir_spec"),
-    ("csv/butter2.csv", "spectrograms/butter2_spec"),
-    ("csv/japanese2.csv", "spectrograms/japanese2_spec"),
-    ("csv/savory3.csv", "spectrograms/savory3_spec"),
-    ("csv/notte2.csv", "spectrograms/notte2_spec"),
-    ("csv/grand.csv", "spectrograms/grand_spec"),
-    ("csv/german3.csv", "spectrograms/german3_spec")
+    ("csv/american.csv", "spectrograms_new/american_spec"),
+    ("csv/american2.csv", "spectrograms_new/american2_spec"),
+    ("csv/black.csv", "spectrograms_new/black_spec"),
+    ("csv/butter.csv", "spectrograms_new/butter_spec"),
+    ("csv/cassete.csv", "spectrograms_new/cassete_spec"),
+    ("csv/crucial.csv", "spectrograms_new/crucial_spec"),
+    ("csv/crucial2.csv", "spectrograms_new/crucial2_spec"),
+    ("csv/desmond.csv", "spectrograms_new/desmond_spec"),
+    ("csv/DX.csv", "spectrograms_new/DX_spec"),
+    ("csv/flkeys.csv", "spectrograms_new/flkeys_spec"),
+    ("csv/german.csv", "spectrograms_new/german_spec"),
+    ("csv/japanese.csv", "spectrograms_new/japanese_spec"),
+    ("csv/montuno.csv", "spectrograms_new/montuno_spec"),
+    ("csv/neglected.csv", "spectrograms_new/neglected_spec"),
+    ("csv/neglected2.csv", "spectrograms_new/neglected2_spec"),
+    ("csv/notte.csv", "spectrograms_new/notte_spec"),
+    ("csv/one.csv", "spectrograms_new/one_spec"),
+    ("csv/ruffian.csv", "spectrograms_new/ruffian_spec"),
+    ("csv/ruffian2.csv", "spectrograms_new/ruffian2_spec"),
+    ("csv/savory.csv", "spectrograms_new/savory_spec"),
+    ("csv/school.csv", "spectrograms_new/school_spec"),
+    ("csv/strings.csv", "spectrograms_new/strings_spec"),
+    ("csv/TBE.csv", "spectrograms_new/TBE_spec"),
+    ("csv/tuck.csv", "spectrograms_new/tuck_spec"),
+    ("csv/wunder.csv", "spectrograms_new/wunder_spec"),
+    ("csv/savory2.csv", "spectrograms_new/savory2_spec"),
+    ("csv/1982.csv", "spectrograms_new/1982_spec"),
+    ("csv/german2.csv", "spectrograms_new/german2_spec"),
+    ("csv/noir.csv", "spectrograms_new/noir_spec"),
+    ("csv/butter2.csv", "spectrograms_new/butter2_spec"),
+    ("csv/japanese2.csv", "spectrograms_new/japanese2_spec"),
+    ("csv/savory3.csv", "spectrograms_new/savory3_spec"),
+    ("csv/notte2.csv", "spectrograms_new/notte2_spec"),
+    ("csv/grand.csv", "spectrograms_new/grand_spec"),
+    ("csv/german3.csv", "spectrograms_new/german3_spec")
 ]
 
 print("Liczba plików CSV:", len(files_dirs))
@@ -61,15 +62,41 @@ with ThreadPoolExecutor() as executor:
 print("Liczba próbek:", len(df))
 file_paths = [os.path.join(row["directory"], row["file"]) for _, row in df.iterrows()]
 
-def load_spectrogram(path):
-    return np.load(path)
+def load_and_stack_in_batches(file_paths, batch_size=2000):
+    sample = np.load(file_paths[0])
+    dtype = sample.dtype
+    shape = sample.shape
+    batched_data = []
+    
+    for i in tqdm(range(0, len(file_paths), batch_size), desc="Przetwarzanie partiami"):
+        batch_paths = file_paths[i:i + batch_size]
+        with ThreadPoolExecutor() as executor:
+            batch = list(executor.map(np.load, batch_paths))
+        temp_file = f"tmp/batch_{i//batch_size}.npy"
+        np.save(temp_file, np.stack(batch))
+        batched_data.append(temp_file)
+    return batched_data, shape, dtype
 
-with ThreadPoolExecutor() as executor:
-    X = list(tqdm(executor.map(load_spectrogram, file_paths), total=len(file_paths), desc="Wczytywanie spektrogramów"))
+os.makedirs("tmp", exist_ok=True)
+batched_files, spec_shape, spec_dtype = load_and_stack_in_batches(file_paths)
 
-X = np.stack(X)  
+def combine_batches(batched_files, output_path, shape, dtype):
+    total_samples = sum(np.load(f, mmap_mode='r').shape[0] for f in batched_files)
+    final_shape = (total_samples, *shape)
+    X_combined = np.memmap(output_path, dtype=dtype, mode='w+', shape=final_shape)
+    idx = 0
+    for batch_file in tqdm(batched_files, desc="Łączenie partii"):
+        batch = np.load(batch_file, mmap_mode='r')
+        X_combined[idx:idx + len(batch)] = batch
+        idx += len(batch)
+        del batch
+        gc.collect()
+        os.remove(batch_file)
+    return X_combined
 
-print("Liczba spektrogramów:", len(X))
+X = combine_batches(batched_files, "tmp/X_memmap.npy", spec_shape, spec_dtype)
+
+print("Liczba spektrogramów:", X.shape[0])
 
 y = np.array(df.iloc[:, 1:-1])  
 
